@@ -1,0 +1,2 @@
+Nothing useful here.  
+Attempt to reproduce/understand heap corruption. Place test.txt on sd:/test.txt, launch .rpx. Wait for the corruption.
