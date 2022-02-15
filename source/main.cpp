@@ -71,7 +71,7 @@ bool CheckRunning() {
 
 #define CHECK_HEAP ((int (*)(uint32_t))(0x101C400 + 0x300a8))
 
-void ReadFile(bool roundup) {
+void WriteFile(bool roundup) {
     FSCmdBlock cmd;
     FSClient client;
 
@@ -81,18 +81,17 @@ void ReadFile(bool roundup) {
     FSInitCmdBlock(&cmd);
 
     FSFileHandle iFd = -1;
-
-    auto status = FSOpenFile(&client, &cmd, "/vol/external01/test.txt", "r", &iFd, FS_ERROR_FLAG_ALL);
+    
+    auto status = FSOpenFile(&client, &cmd, "/vol/external01/test.txt", "w+", &iFd, FS_ERROR_FLAG_ALL);
     if (status != FS_STATUS_OK) {
         OSFatal("Failed to open file");
     }
 
     FSStat stat;
-    stat.size = 0;
+    stat.size = 0x00032187;
 
     void *pBuffer = nullptr;
 
-    status = FSGetStatFile(&client, &cmd, iFd, &stat, FS_ERROR_FLAG_ALL);
 
     if (status == FS_STATUS_OK && stat.size > 0) {
         pBuffer = MEMAllocFromExpHeapEx(heap, roundup ? ROUNDUP(stat.size, 0x40) : stat.size, 0x40);
@@ -111,9 +110,9 @@ void ReadFile(bool roundup) {
 
         // The corruption only happens on the last read of a file.
         if (blocksize < 0x4000) {
-            DEBUG_FUNCTION_LINE("Read %d bytes: into %08X", blocksize, ((uint32_t) pBuffer + done));
+            DEBUG_FUNCTION_LINE("write %d bytes: from %08X", blocksize, ((uint32_t) pBuffer + done));
         }
-        int32_t readBytes = FSReadFile(&client, &cmd, (uint8_t *) ((uint32_t) pBuffer + done), 1, blocksize, iFd, 0, FS_ERROR_FLAG_ALL);
+        int32_t readBytes = FSWriteFile(&client, &cmd, (uint8_t *) ((uint32_t) pBuffer + done), 1, blocksize, iFd, 0, FS_ERROR_FLAG_ALL);
 
         // The corruption only happens on the last read of a file.
         if (blocksize < 0x4000 && !CHECK_HEAP((uint32_t) heap)) {
@@ -160,7 +159,7 @@ main(int argc, char **argv) {
     for (int i = 0; i < 100; i++) {
         WHBLogPrintf("Read file with aligned buffer size. Iteration %d of %d", i, loopEnd);
         WHBLogConsoleDraw();
-        ReadFile(true);
+        WriteFile(true);
     }
 
     OSSleepTicks(OSSecondsToTicks(1));
@@ -171,7 +170,7 @@ main(int argc, char **argv) {
     for (int i = 0; i < loopEnd; i++) {
         WHBLogPrintf("Read file with unaligned buffer size. Iteration %d / %d", i, loopEnd);
         WHBLogConsoleDraw();
-        ReadFile(false);
+        WriteFile(false);
     }
 
     WHBLogPrintf("Wait for threads");
